@@ -1,0 +1,443 @@
+---
+title: "Harry Potter"
+author: "Margherita Monte"
+date: "20/8/2020"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(gdata) # carica il pacchetto gdata
+library(tidytext)
+library(carData)
+```
+
+
+#Importo la prima tabella
+```{r}
+personaggi = read.csv("Characters.csv", sep = ";", na = "")
+tab_pers = personaggi %>%
+  rename(
+    id = Id,
+    nome = Name,
+    sesso = Gender,
+    professione = Job,
+    casa = House,
+    bacchetta = Wand,
+    patronus = Patronus,
+    razza = Species,
+    sangue = Blood.status,
+    capelli = Hair.colour,
+    occhi = Eye.colour,
+    lealtà = Loyalty,
+    competenza = Skills,
+    nascita = Birth,
+    morte = Death
+  ) 
+tab_pers
+```
+
+
+## Casa di appartenenza
+```{r}
+home = tab_pers %>%
+  select(sesso, casa) %>%
+  group_by(casa) %>% 
+  summarise(home = n()) %>%
+  na.omit(tab_pers)
+
+home
+grafico6 = ggplot(data = home) +
+ geom_histogram(aes(casa, home), stat = "identity", fill="blue") +
+  theme(
+  axis.text.x = element_text(angle = 90 )) +
+   +
+  ylab("N") + 
+  xlab("Casa di appartenenza")
+
+  
+grafico6
+
+```
+
+
+## Diversità di sesso in relazione alla Casa di appartenenza
+```{r}
+sex = tab_pers %>%
+  select(sesso, casa, id) %>%
+  group_by(sesso) %>% 
+  summarise(sesso = n()) %>%
+  na.omit(tab_pers)
+sex
+
+grafico = ggplot(data = tab_pers) +
+ geom_bar(aes(casa, id, fill=sesso), stat = "identity", position = "fill") +
+  theme(
+  axis.text.x = element_text(angle = 90 )) +
+  labs (
+    title = "Diversità di sesso in relazione alla Casa di appartenenza"
+  ) 
+  
+grafico
+
+```
+
+
+## Qual'è la specie predominante?
+```{r}
+library(dplyr)
+blood = tab_pers %>%
+  select(id, sangue, sesso) %>%
+  group_by(sangue, sesso) %>%
+  summarise(n_specie = n()) %>%
+  filter(n_specie > 1) %>%
+  na.omit(tab_pers)
+blood
+
+grafico3 = ggplot(data = blood) +
+ geom_bar(aes(n_specie, sangue, fill=sesso), stat = "identity", alpha = 0.8) +
+   theme(
+  axis.text.x = element_text(angle = 90),
+  ) +
+
+  labs (
+    title = "Specie predominante"
+  ) 
+grafico3
+```
+
+
+## A chi sono pù leali i personaggi?
+```{r}
+library(dplyr)
+lealtà = tab_pers %>%
+  select(id, lealtà, sesso) %>%
+  group_by(lealtà, sesso) %>%
+  summarise(n_lea = n()) %>%
+  filter(n_lea > 2) %>%
+  na.omit(tab_pers)
+lealtà
+
+grafico4 = ggplot(data = lealtà) +
+ geom_bar(aes(n_lea, lealtà, fill=sesso), stat = "identity", alpha = 0.8) +
+   theme(
+  axis.text.x = element_text(angle = 90),
+  ) +
+
+  labs (
+    title = "Lealtà dei personaggi"
+  )
+  
+grafico4
+```
+
+
+## Qual'è l'abilità principale dei personaggi?
+```{r}
+ability = tab_pers %>%
+  select(competenza, casa, id) %>%
+  group_by(competenza) %>%
+  summarise(casa = n()) 
+ability
+
+```
+
+
+## Qual'è il personaggio con più battute?
+```{r}
+film1 = read.csv("HarryPotter1.csv", sep = ";", na="")
+film2 = read.csv("HarryPotter2.csv", sep = ";", na="")
+film3 = read.csv("HarryPotter3.csv", sep = ";", na="")
+
+tab1 = full_join(film1, film2)
+tabelle = full_join(tab1, film3)
+tabelle
+
+tabella = tabelle %>%
+  rename(
+    personaggio = Character,
+    battuta = Sentence
+  )
+
+batPers = tabella %>%
+  select(personaggio, battuta) %>%
+  group_by(personaggio) %>%
+  summarise(battuta = n()) %>%
+  filter(battuta > 100) %>%
+  arrange(desc(`battuta`)) 
+  
+batPers
+
+grafico2 = ggplot(data = batPers) +
+ geom_histogram(aes(personaggio, battuta), stat = "identity", fill="blue", alpha = 0.5) +
+   theme(
+  axis.text.x = element_text(angle = 90),
+  ) +
+
+  labs (
+    title = "Personaggi con più battute"
+  ) 
+  
+grafico2
+```
+
+
+## Qual'è la frequenza di parole nel primo film
+```{r}
+library(tidytext)
+primoFilm = read.csv("HarryPotter1.csv", sep = ";")
+primoFilm
+
+film = primoFilm %>%
+  rename(
+    personaggio = Character,
+    battuta = Sentence
+  )
+
+# tokenization: tutte le parole dei libri 
+tidy_HPfilm <- unnest_tokens(tbl = film, output = word, input = battuta)
+
+#rimozione delle stopword
+tidy_HPfilm <- tidy_HPfilm %>%
+  anti_join(stop_words)
+
+# grafico delle frequenze
+tidy_HPfilm %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 10) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip()
+
+tidy_HPfilm
+```
+
+
+## Qual'è la frequenza di parole nel secondo film
+```{r}
+library(tidytext)
+secondoFilm = read.csv("HarryPotter2.csv", sep = ";")
+secondoFilm
+
+film2 = secondoFilm %>%
+  rename(
+    personaggio = Character,
+    battuta = Sentence
+  )
+
+# tokenization: tutte le parole dei libri 
+tidy_HPfilm2 <- unnest_tokens(tbl = film2, output = word, input = battuta)
+
+#rimozione delle stopword
+tidy_HPfilm2 <- tidy_HPfilm2 %>%
+  anti_join(stop_words)
+
+# grafico delle frequenze
+tidy_HPfilm2 %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 15) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip()
+
+tidy_HPfilm2
+```
+
+
+## Qual'è la frequenza di parole nel terzo film
+```{r}
+library(tidytext)
+terzoFilm = read.csv("HarryPotter3.csv", sep = ";")
+terzoFilm
+
+film3 = terzoFilm %>%
+  rename(
+    personaggio = Character,
+    battuta = Sentence
+  )
+
+# tokenization: tutte le parole dei libri 
+tidy_HPfilm3 <- unnest_tokens(tbl = film3, output = word, input = battuta)
+
+#rimozione delle stopword
+tidy_HPfilm3 <- tidy_HPfilm3 %>%
+  anti_join(stop_words)
+
+# grafico delle frequenze
+tidy_HPfilm3 %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 10) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip()
+
+tidy_HPfilm3
+```
+
+
+##Qualisono le tipologie di incantesimi più comuni?
+```{r}
+spells = read.csv("Spells.csv", sep=";", na="")
+magie = spells %>%
+  rename(
+    nome = Name,
+    incantesimo = Incantation,
+    tipo = Type,
+    effetto = Effect,
+    luce = Light
+  )
+
+magia = magie %>%
+  select(nome, tipo) %>%
+  group_by(tipo) %>%
+  summarise(numInc = n()) %>%
+  filter(numInc > 20)
+magia
+  
+
+grafico5 = ggplot(data = magia) +
+ geom_histogram(aes(numInc, tipo), stat = "identity", fill="purple", alpha = 0.5) +
+   theme(
+  axis.text.x = element_text(angle = 90),
+  ) +
+
+  labs (
+    title = "Qual'è la tipologia di incantesimo più comune?"
+  ) 
+grafico5
+```
+
+
+## Pozione con più di 3 ingredienti
+```{r}
+potion = read.csv("Potions.csv", sep=";", na="")
+pozioni = potion %>%
+  rename(
+    nome = Name,
+    ingredienti = Ingredients,
+    effetto = Effect,
+    caratteristiche =Characteristics,
+    difficoltà = Difficulty
+  )
+
+poz = pozioni %>%
+  select(nome, difficoltà) %>%
+  group_by(difficoltà) %>%
+  summarise(numPoz = n(), sort = TRUE) %>%
+  filter(numPoz > 2)
+poz
+
+
+grafico7 = ggplot(data = poz) +
+ geom_histogram(aes(numPoz, difficoltà), stat = "identity", fill="purple", alpha = 0.5) +
+   theme(
+  axis.text.x = element_text(angle = 90),
+  ) +
+
+  labs (
+    title = "Qual'è il grado di difficoltà più comune delle pozioni?"
+  ) 
+grafico7
+```
+
+
+## Quali sono le parole di gioia più comuni?
+```{r}
+library(tidyverse)
+library(tidytext)
+
+film1 = read.csv("HarryPotter1.csv", sep = ";", na="")
+film2 = read.csv("HarryPotter2.csv", sep = ";", na="")
+film3 = read.csv("HarryPotter3.csv", sep = ";", na="")
+
+tab1 = full_join(film1, film2)
+tabelle = full_join(tab1, film3)
+tabelle
+
+tabella = tabelle %>%
+  rename(
+    personaggio = Character,
+    battuta = Sentence
+  )
+
+
+# tokenization: tutte le parole dei libri 
+tidy_HPfilm <- unnest_tokens(tbl = tabella, output = word, input = battuta)
+
+
+nrc_joy <- get_sentiments("nrc") %>% 
+  filter(sentiment == "joy")
+
+tidy_HPfilm %>%
+  inner_join(nrc_joy) %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 5) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n)) +
+  geom_col(fill = "17325547") +
+  xlab(NULL) +
+  coord_flip()
+
+
+```
+
+
+## Quali sono invece le parole che ricordano di più la paura?
+```{r}
+library(tidyverse)
+library(tidytext)
+
+film1 = read.csv("HarryPotter1.csv", sep = ";", na="")
+film2 = read.csv("HarryPotter2.csv", sep = ";", na="")
+film3 = read.csv("HarryPotter3.csv", sep = ";", na="")
+
+tab1 = full_join(film1, film2)
+tabelle = full_join(tab1, film3)
+tabelle
+
+tabella = tabelle %>%
+  rename(
+    personaggio = Character,
+    battuta = Sentence
+  )
+
+
+# tokenization: tutte le parole dei libri 
+tidy_HPfilm <- unnest_tokens(tbl = tabella, output = word, input = battuta)
+
+
+nrc_joy <- get_sentiments("nrc") %>% 
+  filter(sentiment == "fear")
+
+tidy_HPfilm %>%
+  inner_join(nrc_joy) %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 5) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n)) +
+  geom_col(fill = "black") +
+  xlab(NULL) +
+  coord_flip()
+
+```
+
+
+
+
+
+
+
+
